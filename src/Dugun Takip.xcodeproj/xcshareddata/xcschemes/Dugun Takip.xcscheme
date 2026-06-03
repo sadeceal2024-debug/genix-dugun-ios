@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "CD89F888237E9D9200C436A1"
-               BuildableName = "DüğünTakip.app"
-               BlueprintName = "Düğün Takip"
-               ReferencedContainer = "container:Düğün Takip.xcodeproj">
+               BuildableName = "DugunTakip.app"
+               BlueprintName = "Dugun Takip"
+               ReferencedContainer = "container:Dugun Takip.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -45,9 +45,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "CD89F888237E9D9200C436A1"
-            BuildableName = "DüğünTakip.app"
-            BlueprintName = "Düğün Takip"
-            ReferencedContainer = "container:Düğün Takip.xcodeproj">
+            BuildableName = "DugunTakip.app"
+            BlueprintName = "Dugun Takip"
+            ReferencedContainer = "container:Dugun Takip.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -62,9 +62,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "CD89F888237E9D9200C436A1"
-            BuildableName = "DüğünTakip.app"
-            BlueprintName = "Düğün Takip"
-            ReferencedContainer = "container:Düğün Takip.xcodeproj">
+            BuildableName = "DugunTakip.app"
+            BlueprintName = "Dugun Takip"
+            ReferencedContainer = "container:Dugun Takip.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

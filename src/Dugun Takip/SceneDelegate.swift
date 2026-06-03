@@ -48,7 +48,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
             if let url = comps?.url {
                 // Handle it inside our web view in a SPA-friendly way.
-                DüğünTakip.webView.evaluateJavaScript("location.href = '\(url)'")
+                DugunTakip.webView.evaluateJavaScript("location.href = '\(url)'")
             }
         }
     }
@@ -66,7 +66,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
 
         // Handle it inside our web view in a SPA-friendly way.
-        DüğünTakip.webView.evaluateJavaScript("location.href = '\(universalLink)'")
+        DugunTakip.webView.evaluateJavaScript("location.href = '\(universalLink)'")
     }
 
     // This function is called if our app is already loaded and the user activates the app via shortcut
@@ -74,7 +74,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                      performActionFor shortcutItem: UIApplicationShortcutItem,
                      completionHandler: @escaping (Bool) -> Void) {
         if let shortcutUrl = URL.init(string: shortcutItem.type) {
-            DüğünTakip.webView.evaluateJavaScript("location.href = '\(shortcutUrl)'");
+            DugunTakip.webView.evaluateJavaScript("location.href = '\(shortcutUrl)'");
         }
     }
 

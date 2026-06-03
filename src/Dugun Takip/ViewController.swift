@@ -50,32 +50,32 @@ class ViewController: UIViewController, WKNavigationDelegate, UIDocumentInteract
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        DüğünTakip.webView.frame = calcWebviewFrame(webviewView: webviewView, toolbarView: nil)
+        DugunTakip.webView.frame = calcWebviewFrame(webviewView: webviewView, toolbarView: nil)
     }
     
     @objc func keyboardWillHide(_ notification: NSNotification) {
-        DüğünTakip.webView.setNeedsLayout()
+        DugunTakip.webView.setNeedsLayout()
     }
     
     func initWebView() {
-        DüğünTakip.webView = createWebView(container: webviewView, WKSMH: self, WKND: self, NSO: self, VC: self)
-        webviewView.addSubview(DüğünTakip.webView);
+        DugunTakip.webView = createWebView(container: webviewView, WKSMH: self, WKND: self, NSO: self, VC: self)
+        webviewView.addSubview(DugunTakip.webView);
         
-        DüğünTakip.webView.uiDelegate = self;
+        DugunTakip.webView.uiDelegate = self;
         
-        DüğünTakip.webView.addObserver(self, forKeyPath: #keyPath(WKWebView.estimatedProgress), options: .new, context: nil)
+        DugunTakip.webView.addObserver(self, forKeyPath: #keyPath(WKWebView.estimatedProgress), options: .new, context: nil)
 
         if(pullToRefresh){
             let refreshControl = UIRefreshControl()
             refreshControl.addTarget(self, action: #selector(refreshWebView(_:)), for: UIControl.Event.valueChanged)
-            DüğünTakip.webView.scrollView.addSubview(refreshControl)
-            DüğünTakip.webView.scrollView.bounces = true
+            DugunTakip.webView.scrollView.addSubview(refreshControl)
+            DugunTakip.webView.scrollView.bounces = true
         }
 
         if #available(iOS 15.0, *), adaptiveUIStyle {
-            themeObservation = DüğünTakip.webView.observe(\.themeColor) { [unowned self] webView, _ in
-                let backgroundColor = DüğünTakip.webView.underPageBackgroundColor;
-                let themeColor = DüğünTakip.webView.themeColor;
+            themeObservation = DugunTakip.webView.observe(\.themeColor) { [unowned self] webView, _ in
+                let backgroundColor = DugunTakip.webView.underPageBackgroundColor;
+                let themeColor = DugunTakip.webView.themeColor;
                 currentWebViewTheme = themeColor?.isLight() ?? backgroundColor?.isLight() ?? true ? .light : .dark
                 self.overrideUIStyle()
                 view.backgroundColor = themeColor ?? backgroundColor;
@@ -84,7 +84,7 @@ class ViewController: UIViewController, WKNavigationDelegate, UIDocumentInteract
     }
 
     @objc func refreshWebView(_ sender: UIRefreshControl) {
-        DüğünTakip.webView?.reload()
+        DugunTakip.webView?.reload()
         sender.endRefreshing()
     }
 
@@ -115,7 +115,7 @@ class ViewController: UIViewController, WKNavigationDelegate, UIDocumentInteract
     
     func overrideUIStyle(toDefault: Bool = false) {
         if #available(iOS 15.0, *), adaptiveUIStyle {
-            if (((htmlIsLoaded && !DüğünTakip.webView.isHidden) || toDefault) && self.currentWebViewTheme != .unspecified) {
+            if (((htmlIsLoaded && !DugunTakip.webView.isHidden) || toDefault) && self.currentWebViewTheme != .unspecified) {
                 UIApplication
                     .shared
                     .connectedScenes
@@ -132,7 +132,7 @@ class ViewController: UIViewController, WKNavigationDelegate, UIDocumentInteract
     }
     
     @objc func loadRootUrl(cachePolicy: NSURLRequest.CachePolicy = .useProtocolCachePolicy) {
-        DüğünTakip.webView.load(URLRequest(url: SceneDelegate.universalLinkToLaunch ?? SceneDelegate.shortcutLinkToLaunch ?? rootUrl, cachePolicy: cachePolicy))
+        DugunTakip.webView.load(URLRequest(url: SceneDelegate.universalLinkToLaunch ?? SceneDelegate.shortcutLinkToLaunch ?? rootUrl, cachePolicy: cachePolicy))
     }
     
     func reloadWebview(
@@ -156,7 +156,7 @@ class ViewController: UIViewController, WKNavigationDelegate, UIDocumentInteract
         self.animateConnectionProblem(false)
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            DüğünTakip.webView.isHidden = false
+            DugunTakip.webView.isHidden = false
             self.loadingView.isHidden = true
            
             self.setProgress(0.0, false)
@@ -195,10 +195,10 @@ class ViewController: UIViewController, WKNavigationDelegate, UIDocumentInteract
     override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
 
         if (keyPath == #keyPath(WKWebView.estimatedProgress) &&
-                DüğünTakip.webView.isLoading &&
+                DugunTakip.webView.isLoading &&
                 !self.loadingView.isHidden &&
                 !self.htmlIsLoaded) {
-                    var progress = Float(DüğünTakip.webView.estimatedProgress);
+                    var progress = Float(DugunTakip.webView.estimatedProgress);
                     
                     if (progress >= 0.8) { progress = 1.0; };
                     if (progress >= 0.3) { self.animateConnectionProblem(false); }
@@ -231,7 +231,7 @@ class ViewController: UIViewController, WKNavigationDelegate, UIDocumentInteract
     }
         
     deinit {
-        DüğünTakip.webView.removeObserver(self, forKeyPath: #keyPath(WKWebView.estimatedProgress))
+        DugunTakip.webView.removeObserver(self, forKeyPath: #keyPath(WKWebView.estimatedProgress))
     }
 }
 
@@ -260,7 +260,7 @@ extension UIColor {
 extension ViewController: WKScriptMessageHandler {
   func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         if message.name == "print" {
-            printView(webView: DüğünTakip.webView)
+            printView(webView: DugunTakip.webView)
         }
         if message.name == "push-subscribe" {
             handleSubscribeTouch(message: message)
@@ -354,7 +354,7 @@ extension ViewController {
         let errJs = error.map { "'\($0)'" } ?? "null"
         let js = "window.alkomutNativeResult && window.alkomutNativeResult(\(jsonText), \(isFinal ? "true" : "false"), \(errJs));"
         DispatchQueue.main.async {
-            DüğünTakip.webView?.evaluateJavaScript(js, completionHandler: nil)
+            DugunTakip.webView?.evaluateJavaScript(js, completionHandler: nil)
         }
     }
 }
