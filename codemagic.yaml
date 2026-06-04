@@ -75,9 +75,17 @@ workflows:
 
       - name: IPA derle
         script: |
+          set +e
           xcode-project build-ipa \
             --workspace "$XCODE_WORKSPACE" \
             --scheme "$XCODE_SCHEME"
+          RC=$?
+          if [ $RC -ne 0 ]; then
+            echo "==================== GENIX HATA DETAYI ===================="
+            grep -rhiE "error:|provisioning|aps-environment|no profile|doesn't include|requires a provisioning|signing|entitlement|code sign" /tmp/xcodebuild_logs/*.log 2>/dev/null | grep -viE "warning:|note:" | tail -50
+            echo "=========================================================="
+          fi
+          exit $RC
 
     artifacts:
       - build/ios/ipa/*.ipa
