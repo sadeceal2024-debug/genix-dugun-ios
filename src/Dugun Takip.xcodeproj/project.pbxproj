@@ -133,11 +133,12 @@
 			};
 			buildConfigurationList = CD89F884237E9D9200C436A1 /* Build configuration list for PBXProject "Dugun Takip" */;
 			compatibilityVersion = "Xcode 11.0";
-			developmentRegion = en;
+			developmentRegion = tr;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
+				tr,
 			);
 			mainGroup = CD89F880237E9D9200C436A1;
 			productRefGroup = CD89F880237E9D9200C436A1;
