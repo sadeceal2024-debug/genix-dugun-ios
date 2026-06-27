@@ -30,6 +30,7 @@ class ViewController: UIViewController, WKNavigationDelegate, UIDocumentInteract
     // ===== Face ID / Ekran Kilidi (App Lock) =====
     var genixLockOverlay: UIView?
     var genixLockAuthInProgress = false
+    var genixNeedsUnlock = false   // yalnızca gerçek arka plan→ön geçişinde doğrula
     
     private var themeObservation: NSKeyValueObservation?
     var currentWebViewTheme: UIUserInterfaceStyle = .unspecified
@@ -51,10 +52,12 @@ class ViewController: UIViewController, WKNavigationDelegate, UIDocumentInteract
         loadRootUrl()
         if #available(iOS 15.0, *) { GenixIAP.shared.startObserving() }
 
-        // Açılışta ekran kilidi açıksa içerik görünmeden hemen kilitle + doğrulama iste.
+        // Açılışta ekran kilidi açıksa içerik görünmeden hemen kapat + doğrulama bekle.
+        // (Doğrulamayı sceneDidBecomeActive tetikler; gecikmeli çağrı yedektir.)
         if genixAppLockEnabled() {
             genixShowLock()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { self.genixPresentAuth() }
+            genixNeedsUnlock = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { self.genixAuthenticateIfNeeded() }
         }
     
         NotificationCenter.default.addObserver(self, selector: #selector(self.keyboardWillHide(_:)), name: UIResponder.keyboardWillHideNotification , object: nil)
@@ -665,22 +668,36 @@ extension ViewController {
         genixLockOverlay = nil
     }
 
+    // Kilit ekranındaki butona basınca: manuel tekrar dene (bayraktan bağımsız).
     @objc func genixLockButtonTapped() {
-        genixPresentAuth()
+        genixRunBiometric()
     }
 
-    // Arka plana alınınca anında kapak (uygulama değiştiricide içerik görünmesin).
-    func genixApplyPrivacyShield() {
+    // Arka plana alınınca: anında kapak + sonraki ÖN geçişte doğrulama bayrağı.
+    func genixOnEnterBackground() {
         guard genixAppLockEnabled() else { return }
         genixShowLock()
+        genixNeedsUnlock = true
     }
 
-    // Öne gelince / açılışta biyometri doğrulaması iste.
-    func genixPresentAuth() {
+    // Öne gelince/açılışta: SADECE gerçekten kilit gerekiyorsa doğrula.
+    // Face ID sayfası kapanınca da sceneDidBecomeActive tetiklenir; o anda
+    // bayrak false olduğundan tekrar istenmez → aç-kapan döngüsü olmaz.
+    func genixAuthenticateIfNeeded() {
+        guard genixAppLockEnabled(), genixNeedsUnlock else { return }
+        genixRunBiometric()
+    }
+
+    // Geriye dönük adlar (SceneDelegate eski isim çağırırsa kırılmasın).
+    func genixApplyPrivacyShield() { genixOnEnterBackground() }
+    func genixPresentAuth() { genixAuthenticateIfNeeded() }
+
+    private func genixRunBiometric() {
         guard genixAppLockEnabled() else { return }
         if genixLockAuthInProgress { return }
         genixShowLock()
         genixLockAuthInProgress = true
+        genixNeedsUnlock = false   // doğrulama başladı → bu ön-gelişte tekrar isteme
 
         let ctx = LAContext()
         var err: NSError?
@@ -689,8 +706,11 @@ extension ViewController {
                                localizedReason: "Düğün Takip'i açmak için kimliğinizi doğrulayın") { ok, _ in
                 DispatchQueue.main.async {
                     self.genixLockAuthInProgress = false
-                    if ok { self.genixHideLock() }
-                    // başarısız/iptal → kilitli kalır, kullanıcı butonla tekrar dener
+                    if ok {
+                        self.genixHideLock()
+                    }
+                    // başarısız/iptal → kilitli kalır; otomatik tekrar İSTENMEZ
+                    // (döngü olmasın). Kullanıcı buton ile tekrar dener.
                 }
             }
         } else {
