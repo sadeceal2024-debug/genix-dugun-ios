@@ -3,6 +3,7 @@ import WebKit
 import Speech
 import AVFoundation
 import StoreKit
+import LocalAuthentication
 
 var webView: WKWebView! = nil
 
@@ -25,6 +26,10 @@ class ViewController: UIViewController, WKNavigationDelegate, UIDocumentInteract
     
     var htmlIsLoaded = false;
     private var loadingMode = LoadingMode.defaultCachePolicy
+
+    // ===== Face ID / Ekran Kilidi (App Lock) =====
+    var genixLockOverlay: UIView?
+    var genixLockAuthInProgress = false
     
     private var themeObservation: NSKeyValueObservation?
     var currentWebViewTheme: UIUserInterfaceStyle = .unspecified
@@ -45,6 +50,12 @@ class ViewController: UIViewController, WKNavigationDelegate, UIDocumentInteract
         initToolbarView()
         loadRootUrl()
         if #available(iOS 15.0, *) { GenixIAP.shared.startObserving() }
+
+        // Açılışta ekran kilidi açıksa içerik görünmeden hemen kilitle + doğrulama iste.
+        if genixAppLockEnabled() {
+            genixShowLock()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { self.genixPresentAuth() }
+        }
     
         NotificationCenter.default.addObserver(self, selector: #selector(self.keyboardWillHide(_:)), name: UIResponder.keyboardWillHideNotification , object: nil)
         
@@ -282,6 +293,9 @@ extension ViewController: WKScriptMessageHandler {
         if message.name == "iap" {
             handleIAP(message)
         }
+        if message.name == "biometricLock" {
+            handleBiometricLock(message)
+        }
   }
 }
 
@@ -493,6 +507,196 @@ final class GenixIAP {
                 }
             }
             emit("status", ["ok": true, "active": active, "isActive": !active.isEmpty])
+        }
+    }
+}
+
+// ===== Face ID / Touch ID / Ekran Kilidi (App Lock) — Düğün =====
+// Kullanıcı ayarlardan açtığında uygulamayı her açılışta biyometri ile kilitler.
+// Politika .deviceOwnerAuthentication: Face ID/Touch ID başarısız olursa iOS
+// OTOMATİK olarak cihazın ekran şifresine düşer (kullanıcı isteği). Şifre saklanmaz;
+// mevcut web oturumu açık kaldığı için kilit açılınca şifresiz olarak hesaba girilir.
+extension ViewController {
+
+    private static let genixLockKey = "genixAppLockEnabled"
+
+    func genixAppLockEnabled() -> Bool {
+        return UserDefaults.standard.bool(forKey: ViewController.genixLockKey)
+    }
+
+    private func genixKeyWindow() -> UIWindow? {
+        return UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first { $0.isKeyWindow } ?? self.view.window
+    }
+
+    private func genixBiometryName() -> String {
+        let ctx = LAContext()
+        var err: NSError?
+        _ = ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: &err)
+        switch ctx.biometryType {
+        case .faceID:  return "Face ID"
+        case .touchID: return "Touch ID"
+        default:       return "Ekran Kilidi"
+        }
+    }
+
+    // Web'e durum bildir: window.genixBiometricResult({...})
+    private func genixReplyBiometric(_ dict: [String: Any]) {
+        let json = (try? JSONSerialization.data(withJSONObject: dict))
+            .flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
+        let js = "window.genixBiometricResult && window.genixBiometricResult(\(json));"
+        DispatchQueue.main.async {
+            DugunTakip.webView?.evaluateJavaScript(js, completionHandler: nil)
+        }
+    }
+
+    // Web köprüsü: enable / disable / state
+    func handleBiometricLock(_ message: WKScriptMessage) {
+        let body = message.body as? [String: Any] ?? [:]
+        let action = (body["action"] as? String) ?? "state"
+
+        switch action {
+        case "enable":
+            let ctx = LAContext()
+            var err: NSError?
+            if ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: &err) {
+                let bio = genixBiometryName()
+                ctx.evaluatePolicy(.deviceOwnerAuthentication,
+                                   localizedReason: "Ekran kilidini açmak için kimliğinizi doğrulayın") { ok, e in
+                    DispatchQueue.main.async {
+                        if ok {
+                            UserDefaults.standard.set(true, forKey: ViewController.genixLockKey)
+                            self.genixReplyBiometric(["action": "enable", "enabled": true, "available": true, "biometry": bio])
+                        } else {
+                            self.genixReplyBiometric(["action": "enable", "enabled": false, "available": true, "error": e?.localizedDescription ?? "iptal"])
+                        }
+                    }
+                }
+            } else {
+                // Cihazda ne biyometri ne ekran şifresi tanımlı — kilit kurulamaz.
+                genixReplyBiometric(["action": "enable", "enabled": false, "available": false, "error": "no-auth"])
+            }
+
+        case "disable":
+            // Kapatmadan önce doğrulama iste (yetkisiz kapatmayı önler).
+            let ctx = LAContext()
+            var err: NSError?
+            if ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: &err) {
+                ctx.evaluatePolicy(.deviceOwnerAuthentication,
+                                   localizedReason: "Ekran kilidini kapatmak için kimliğinizi doğrulayın") { ok, e in
+                    DispatchQueue.main.async {
+                        if ok {
+                            UserDefaults.standard.set(false, forKey: ViewController.genixLockKey)
+                            self.genixReplyBiometric(["action": "disable", "enabled": false, "available": true])
+                        } else {
+                            self.genixReplyBiometric(["action": "disable", "enabled": true, "available": true, "error": e?.localizedDescription ?? "iptal"])
+                        }
+                    }
+                }
+            } else {
+                UserDefaults.standard.set(false, forKey: ViewController.genixLockKey)
+                genixReplyBiometric(["action": "disable", "enabled": false, "available": false])
+            }
+
+        default: // state
+            let ctx = LAContext()
+            var err: NSError?
+            let avail = ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: &err)
+            genixReplyBiometric(["action": "state", "enabled": genixAppLockEnabled(), "available": avail, "biometry": genixBiometryName()])
+        }
+    }
+
+    // Kilit ekranını göster (opak kapak — arka plana alınınca gizlilik + açılışta kilit).
+    func genixShowLock() {
+        if let existing = genixLockOverlay {
+            existing.isHidden = false
+            existing.superview?.bringSubviewToFront(existing)
+            return
+        }
+        // Pencere henüz hazır değilse (açılış anı) VC görünümüne ekle → içerik asla görünmez.
+        let container: UIView = genixKeyWindow() ?? self.view
+        let overlay = UIView(frame: container.bounds)
+        overlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        overlay.backgroundColor = UIColor(red: 0.07, green: 0.05, blue: 0.12, alpha: 1.0)
+        overlay.isUserInteractionEnabled = true
+
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.alignment = .center
+        stack.spacing = 18
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        let icon = UIImageView(image: UIImage(systemName: "lock.fill"))
+        icon.tintColor = UIColor(red: 0.66, green: 0.55, blue: 0.98, alpha: 1.0)
+        icon.contentMode = .scaleAspectFit
+        NSLayoutConstraint.activate([icon.widthAnchor.constraint(equalToConstant: 54), icon.heightAnchor.constraint(equalToConstant: 54)])
+
+        let title = UILabel()
+        title.text = "Düğün Takip kilitli"
+        title.textColor = .white
+        title.font = .systemFont(ofSize: 18, weight: .bold)
+
+        let btn = UIButton(type: .system)
+        btn.setTitle("  \(genixBiometryName()) ile Aç  ", for: .normal)
+        btn.setTitleColor(.white, for: .normal)
+        btn.titleLabel?.font = .systemFont(ofSize: 16, weight: .bold)
+        btn.backgroundColor = UIColor(red: 0.49, green: 0.23, blue: 0.93, alpha: 1.0)
+        btn.layer.cornerRadius = 12
+        btn.contentEdgeInsets = UIEdgeInsets(top: 12, left: 22, bottom: 12, right: 22)
+        btn.addTarget(self, action: #selector(genixLockButtonTapped), for: .touchUpInside)
+
+        stack.addArrangedSubview(icon)
+        stack.addArrangedSubview(title)
+        stack.addArrangedSubview(btn)
+        overlay.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.centerXAnchor.constraint(equalTo: overlay.centerXAnchor),
+            stack.centerYAnchor.constraint(equalTo: overlay.centerYAnchor)
+        ])
+
+        container.addSubview(overlay)
+        genixLockOverlay = overlay
+    }
+
+    func genixHideLock() {
+        genixLockOverlay?.removeFromSuperview()
+        genixLockOverlay = nil
+    }
+
+    @objc func genixLockButtonTapped() {
+        genixPresentAuth()
+    }
+
+    // Arka plana alınınca anında kapak (uygulama değiştiricide içerik görünmesin).
+    func genixApplyPrivacyShield() {
+        guard genixAppLockEnabled() else { return }
+        genixShowLock()
+    }
+
+    // Öne gelince / açılışta biyometri doğrulaması iste.
+    func genixPresentAuth() {
+        guard genixAppLockEnabled() else { return }
+        if genixLockAuthInProgress { return }
+        genixShowLock()
+        genixLockAuthInProgress = true
+
+        let ctx = LAContext()
+        var err: NSError?
+        if ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: &err) {
+            ctx.evaluatePolicy(.deviceOwnerAuthentication,
+                               localizedReason: "Düğün Takip'i açmak için kimliğinizi doğrulayın") { ok, _ in
+                DispatchQueue.main.async {
+                    self.genixLockAuthInProgress = false
+                    if ok { self.genixHideLock() }
+                    // başarısız/iptal → kilitli kalır, kullanıcı butonla tekrar dener
+                }
+            }
+        } else {
+            // Doğrulama yapılamıyor (ör. ekran şifresi kaldırılmış) → kilitlenip kalmamak için aç.
+            genixLockAuthInProgress = false
+            genixHideLock()
         }
     }
 }
