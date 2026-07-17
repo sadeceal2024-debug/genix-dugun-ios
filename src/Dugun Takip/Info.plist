@@ -113,5 +113,32 @@
 		<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	</array>
 	
+	<key>UIApplicationShortcutItems</key>
+	<array>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>https://dugun.genixsoft.com.tr/takvim.php?yeni=1</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Yeni Rezervasyon</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>https://dugun.genixsoft.com.tr/cari.php?odeme=1</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Ödeme Al</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>https://dugun.genixsoft.com.tr/gelen-isler.php</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Gelen İşler</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>https://dugun.genixsoft.com.tr/takvim.php</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Takvim</string>
+		</dict>
+	</array>
 </dict>
 </plist>
